@@ -1,0 +1,110 @@
+%[trainX,trainY,testX,testY] = getusps(c1,c2,ntrain);
+% [trainX,trainY,testX,testY] = getusps(7,9,550);
+% nhiddens = [5 10 50];
+% lambdas = logspace(-4,0,5);
+% [W1,W2] = trainneuralnet1(trainX,trainY,nhidden,lambda)
+
+function [W1,W2] = trainneuralnet(trainX,trainY,nhidden,lambda)
+    m = size(trainX,1); %instance numb
+    layers = 2;
+    features = size(trainX,2);
+    
+    W1 = randn(features,nhidden)/10;
+    W2 = randn(nhidden,1)/10;
+    W = {W1,W2};
+ 
+    z ={};
+    a ={};
+    Delta ={};
+
+    stepsize = 0.1;
+    maxgradient = 1;
+    round = 1;
+    Loss = inf;
+%     lastround_gradient = 0;
+    
+    while(maxgradient > 1e-3)
+        %maxgradient = -inf;
+        
+        if(mod(round,1000)==0)
+            newLoss = calulate_Loss(W,z{1,layers},trainY);
+            if(newLoss>Loss)
+                stepsize = stepsize/10;
+            else
+                Loss = mewLoss;
+            end
+        end
+        GradientW = cell(1,layers);
+        DeltaW = cell(1,layers);
+        [z,a] = forward_Propagation (trainX , W);
+        Delta = backward_Propagation (W, z, a, trainY);
+        % Delta1=550*5  trainX = 550*256 DeltaW1=256*5      z1 = 550*5 Delta2 = 550*1 DeltaW2 = 5*1  
+        thisz = trainX;
+        for(i = 1: layers)
+            if(i>1)
+                thisz = z{1,i-1};
+            end
+            GradientW{1,i} = thisz'*Delta{1,i};
+            DeltaW{1,i} = -stepsize* GradientW{1,i};
+            
+            W{1,i} = W{1,i} + DeltaW{1,i};
+        end
+        Max = -inf;
+        
+        for(i = 1: layers)
+            
+            temp = max(max(GradientW{1,i}))
+            Max = max(temp,Max);
+        end
+        maxgradient = abs(Max);
+        disp(['Round = ',num2str(round) ,' Stepsize = ',num2str(stepsize) ,' maxgradient = ',num2str(maxgradient),' Loss = ',num2str(Loss)]); 
+        round = round+1;
+    end
+   
+end
+% n = nhidden
+% l = nlayer
+% a{ a1(x1,x2...xm) ; a2(z1));... al(zl-1)}
+% z{ z1(a1(x1));)
+function [z,a] = forward_Propagation (trainX , W, z, a)
+    thisz = trainX;
+    layers = size(W,2);
+    for i = 1 : layers
+        a{1,i} = thisz*W{1,i};
+        z{1,i} = ones(size(a{1,i},1),size(a{1,i},2));
+        for j = 1: size(trainX,2)
+            for k = 1 : size( W{1,i},2)
+                z{1,i}(j,k) = (1/(1+exp(1)^(-a{1,i}(j,k))));
+            end
+        end
+    thisz = z{1,i};
+    end
+end
+
+function Delta = backward_Propagation (W, z, a, trainY)
+    layers = size(W,2);
+    Delta = cell(1,layers);
+    Delta{1,layers} = z{1,layers}-trainY;
+    % g'(a)
+    for(i = layers-1 : 1)
+        % W2 = randn(nhidden,1)/10; 5*1
+        % Delta{1,2} = 550 * 1
+        % W1 = randn(features,nhidden)/10; 256*5
+        % Delta{1,1} = 550 * 5
+        Delta{1,i} = ((1- z{1,i}).*z{1,i}).*(Delta{1,i+1}*W{1,i+1}'); 
+    end
+end
+ %l(f,y) = ?(y log(f) + (1?y)log(1?f)) 
+function Loss = calulate_Loss(W, output_z_vlue, trainY, lambda)
+    Loss = 0;
+    layers = size(W,2);
+    for i=1 : size(trainY,1)
+        w = 0;
+        for j=1 : layers
+            w = w + W{1,j}(i,:)*W{1,j}(i,:)';
+        end
+        regulation = 2*lambda*w;
+        Loss = Loss -trainY(i,:)*log(output_z_vlue(i,:))+(1-trainY(i,:))*log(1-output_z_vlue(i,:))+regulation;
+    end
+    Loss= Loss/size(trainY,1);
+end
