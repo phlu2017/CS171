@@ -6,7 +6,8 @@
 
 function [W1,W2] = trainneuralnet(trainX,trainY,nhidden,lambda)
     m = size(trainX,1); %instance numb
-    layers = 2;
+    layers = 2;%%test
+   
     features = size(trainX,2);
     
     W1 = randn(features,nhidden)/10;
