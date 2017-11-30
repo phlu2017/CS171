@@ -1,0 +1,173 @@
+%  D = loaddata(filename) will return an object representing the dataset 
+%  (to be used as the D argument in the functions below. You should only access D through the functions below. 
+%   
+%  num = getcount(set,D) will return the number of transactions in the dataset D for which all element of the set set are present.
+%   set should be a vector of integers, each representing a di?erent item. ? 
+%   
+%  I = items(D) will return a vector of all of the items (as integers) in the dataset D, in sorted order. 
+%  
+%  m = numexamples(D) will return the number of transactions (or examples) in the data D. ? 
+%  
+%  str = rule2str(X,Y,D) will return a string representing the rule encoded by X → Y, 
+%  where X and Y are represented by vectors of integers.
+
+function findrules(D,smin,amin)
+%     Recordsmin = containers.Map;
+%     D = loaddata('groceries.txt');
+%     %set = [1,2];
+%     %test = getcount(set,D)
+%     smin = 0.01;
+%     amin = 0.5;
+    Rules = {};
+    index = 1;
+    
+    possible_subsets = Apriori(items(D), D.data, smin, D);
+    
+    for i = 2 : size(possible_subsets, 2)-1
+        layers_subsets = possible_subsets{1, i};
+        Z_value = count_suppurt( layers_subsets, D );
+        
+        for j = 1 : size( layers_subsets, 2)
+            
+           
+            
+            for m = 1: size( layers_subsets{1, j}, 2 )
+                sub = nchoosek( layers_subsets{1, j}, m);
+                subcell = transfer(sub);
+                result  = Z_value(1, j) ./ count_suppurt( subcell, D );
+                for k = 1 : size(result, 2) 
+                    if result(1,k) >= amin && result(1,k)~=1 && result(1,k)<=1
+                        rule = {};
+                        rule{1,1} = Z_value(1, j);
+                        rule{1,2} = getcount(layers_subsets{1, j}, D)/getcount( subcell{1,k}, D);
+                        rule{1,3} = subcell{1,k};
+                       
+                       
+%                         for u = 1 : size( subcell{1,k}, 2)
+%                             layers_subsets{1, j}(1, find( subcell{1,k}(1,u) ) ) = [];
+%                         end
+                        [c, ia, ib] = intersect(layers_subsets{1, j},subcell{1,k});
+                        layers_subsets{1, j}(ia) = [];
+                        rule{1,4} = layers_subsets{1, j};
+                        Rules{1,index} = rule;
+                        index = index + 1;
+                    end
+                        
+                end
+            end
+        end
+    end
+    
+%     for i = 1 : size( Rules, 2)
+%         temp = Rules{1,i};
+%         disp([num2str(temp{1,2}),' ',num2str(temp{1,1}),' ',rule2str(temp{1,3},temp{1,4},D)]);
+%     end
+    ranking = [];
+    for i = 1 : size( Rules, 2)
+        temp = Rules{1,i};
+        ranking(1,i) = temp{1,2};
+    end
+    [B,ix]=sort(ranking);
+    for i = 1 : size( Rules, 2)
+        temp = Rules{1,ix(1,i)};
+        disp([num2str(temp{1,2}),' ',num2str(temp{1,1}),' ',rule2str(temp{1,3},temp{1,4},D)]);
+    end
+    
+
+%D.names;
+%     I = items(D);
+%     X = 1;
+%     Y = 2;
+%     test = rule2str(X,Y,D)
+end
+
+
+function subcell = transfer(sub)
+    subcell = {};
+    for i = 1: size(sub,1)
+        subcell{ 1, i } = sub(i,:);  
+    end
+end 
+
+function this_level_smin = count_suppurt(this_level_items, D)
+    this_level_smin = zeros(1, size(this_level_items,2) );
+    
+    for i = 1: size( this_level_items , 2)
+        nowitems = cell2mat( this_level_items( :,i ) );
+        top = getcount( nowitems,D );
+        this_level_smin(:,i) = top/numexamples(D);
+    end
+end
+
+function count_confidence()
+end
+
+function L = build_level(this_level_smin, items_set, smin)
+    L = {}
+    index = 1;
+    for i = 1 : size(this_level_smin,2)
+        if this_level_smin(:,i)>= smin
+            L(:, index) = items_set(: ,i );
+            index = index + 1;
+        end  
+    end
+end
+
+function L = Apriori(I, data, smin, D)
+    L = {};
+    eachitems = num2cell(I); 
+
+    first_level_smin = count_suppurt( eachitems, D);
+    L1 = build_level(first_level_smin , eachitems, smin);
+   
+    L = {L1};
+    i = 1;
+    while( size( L{:, i}, 2)>0 )
+        i = i+1;
+        C = Apriori_Gen( L{ :, i-1 }, i );
+        this_L = {};
+        C_smin = count_suppurt(C, D);
+        
+        index = 1;
+        for j = 1 : size( C_smin, 2 )
+            if C_smin(:,j) >= smin
+                this_L{1,index} = C{:, j};
+                index = index + 1;
+            end
+        end
+        L{:,i} = this_L;
+    end
+    
+end
+
+function C = Apriori_Gen( this_L, i)
+    C = {};
+    index = 1;
+    for j = 1 : size(this_L, 2)
+        for k = j + 1 : size(this_L, 2)
+            if size(this_L{:,j},2)==1
+                temp = [this_L{:,j}, this_L{:,k}];
+                C{1,index} = temp;
+                index = index + 1;
+                
+            elseif isagree(this_L{:,j}, this_L{:, k} )
+                temp = unique([this_L{:,k}, this_L{:,j}]);
+                C{1,index} = temp;
+                index = index + 1;
+            else
+                break;
+            end
+        end
+    end
+end
+
+function flag = isagree(A,B)
+    flag = 1;
+    for i = 1 : size(A,2)-1
+        if(A(:,i) ~= B(:,i))
+            flag = 0;
+            break;
+        end
+    end
+    
+end
